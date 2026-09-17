@@ -2,6 +2,7 @@ let perguntas = []
 let perguntaAtual = 0
 let pontuacao = 0
 let tokenSessao = null;
+let perguntasVistas = [];
 
 async function buscarToken() {
     const resposta = await fetch("https://tryvia.ptr.red/api_token.php?command=request")
@@ -9,17 +10,41 @@ async function buscarToken() {
     return dados.token
 }
 
-async function buscarPerguntas() {
+async function buscarPerguntasUnicas(quantidade) {
+    let perguntasUnicas = [];
+    let tentativas = 0;
+
+    while (perguntasUnicas.length < quantidade && tentativas < 5) {
+        const lote = await buscarPerguntas(20);
+
+        const novas = lote.filter(function(pergunta) {
+            return !perguntasVistas.includes(pergunta.question);
+        });
+
+        novas.forEach(function(pergunta) {
+            if (perguntasUnicas.length < quantidade) {
+                perguntasUnicas.push(pergunta);
+                perguntasVistas.push(pergunta.question);
+            }
+        });
+
+        tentativas++;
+    }
+
+    return perguntasUnicas;
+}
+
+async function buscarPerguntas(quantidade) {
     if (!tokenSessao) {
         tokenSessao = await buscarToken();
     }
 
-    const resposta = await fetch(`https://tryvia.ptr.red/api.php?amount=10&token=${tokenSessao}`)
+    const resposta = await fetch(`https://tryvia.ptr.red/api.php?amount=${quantidade}&token=${tokenSessao}`)
     const dados = await resposta.json()
 
     if (dados.response_code === 4) {
         tokenSessao = await buscarToken();
-        const novaResposta = await fetch(`https://tryvia.ptr.red/api.php?amount=10&token=${tokenSessao}`);
+        const novaResposta = await fetch(`https://tryvia.ptr.red/api.php?amount=${quantidade}&token=${tokenSessao}`);
         const novosDados = await novaResposta.json();
         return novosDados.results;
     }
@@ -120,25 +145,25 @@ function exibirResultado() {
     document.querySelector('.mensagem-resultado').textContent = mensagem;
 }
 
+async function iniciarQuiz() {
+    perguntas = await buscarPerguntasUnicas(10)
+    exibirPergunta()
+}
+
+
+
 async function reiniciarQuiz() {
     perguntaAtual = 0;
     pontuacao = 0;
-
+    
     document.querySelector('.resultado').style.display = 'none';
     document.querySelector('.quiz').style.display = 'block';
-
-    perguntas = await buscarPerguntas();
+    
+    perguntas = await buscarPerguntasUnicas(10);
     exibirPergunta();
 }
 
 document.querySelector('.btn-jogar-novamente').addEventListener('click', reiniciarQuiz);
-
-
-async function iniciarQuiz() {
-    perguntas = await buscarPerguntas()
-    exibirPergunta()
-}
-
 iniciarQuiz()
 
 console.log(perguntas)

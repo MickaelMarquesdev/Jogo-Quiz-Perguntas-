@@ -1,6 +1,7 @@
 let perguntas = []
 let perguntaAtual = 0
 let pontuacao = 0
+let tokenSessao = null;
 
 async function buscarToken() {
     const resposta = await fetch("https://tryvia.ptr.red/api_token.php?command=request")
@@ -9,9 +10,20 @@ async function buscarToken() {
 }
 
 async function buscarPerguntas() {
-    const token = await buscarToken()
-    const resposta = await fetch(`https://tryvia.ptr.red/api.php?amount=10&token=${token}`)
+    if (!tokenSessao) {
+        tokenSessao = await buscarToken();
+    }
+
+    const resposta = await fetch(`https://tryvia.ptr.red/api.php?amount=10&token=${tokenSessao}`)
     const dados = await resposta.json()
+
+    if (dados.response_code === 4) {
+        tokenSessao = await buscarToken();
+        const novaResposta = await fetch(`https://tryvia.ptr.red/api.php?amount=10&token=${tokenSessao}`);
+        const novosDados = await novaResposta.json();
+        return novosDados.results;
+    }
+
     return dados.results
 }
 
